@@ -12,7 +12,6 @@ resource "aws_db_subnet_group" "this" {
 }
 
 resource "aws_security_group" "rds" {
-  # checkov:skip=CKV2_AWS_5:Attachment is added with the managed RDS instance in the next implementation task.
   name        = "${local.project}-rds"
   description = "Restricts PostgreSQL access to approved application runtimes"
   vpc_id      = data.terraform_remote_state.k8s.outputs.vpc_id
