@@ -39,7 +39,7 @@ run "network_isolation" {
     error_message = "PostgreSQL ingress must use only security group references"
   }
   assert {
-    condition = aws_iam_service_linked_role.rds.aws_service_name == "rds.amazonaws.com"
+    condition     = aws_iam_service_linked_role.rds.aws_service_name == "rds.amazonaws.com"
     error_message = "RDS service-linked role must exist before creating the subnet group"
   }
 
