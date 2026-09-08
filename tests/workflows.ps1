@@ -4,7 +4,7 @@ $ci = Get-Content -LiteralPath '.github/workflows/ci.yml' -Raw
 $deploy = Get-Content -LiteralPath '.github/workflows/deploy.yml' -Raw
 $destroy = Get-Content -LiteralPath '.github/workflows/destroy.yml' -Raw
 
-foreach ($required in @('terraform fmt -check -recursive', 'terraform validate', 'terraform test', 'tflint --recursive', 'framework: terraform')) {
+foreach ($required in @('terraform fmt -check -recursive', 'terraform validate', 'terraform test', 'tflint --recursive', '--framework terraform')) {
     if ($ci -notmatch [regex]::Escape($required)) {
         throw "CI workflow is missing: $required"
     }
