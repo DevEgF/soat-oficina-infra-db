@@ -1,6 +1,6 @@
 mock_provider "aws" {}
 
-run "database_contract" {
+run "network_isolation" {
   command = plan
 
   variables {
@@ -22,12 +22,20 @@ run "database_contract" {
   }
 
   assert {
-    condition     = output.database_name == "oficina"
-    error_message = "database name changed"
+    condition     = length(aws_db_subnet_group.this.subnet_ids) == 2
+    error_message = "RDS needs two private subnets"
   }
 
   assert {
-    condition     = output.database_port == 5432
-    error_message = "database port changed"
+    condition     = length(aws_vpc_security_group_ingress_rule.postgres) == 2
+    error_message = "only EKS and Lambda may connect"
+  }
+
+  assert {
+    condition = alltrue([
+      for rule in aws_vpc_security_group_ingress_rule.postgres :
+      rule.cidr_ipv4 == null && rule.referenced_security_group_id != null
+    ])
+    error_message = "PostgreSQL ingress must use only security group references"
   }
 }
