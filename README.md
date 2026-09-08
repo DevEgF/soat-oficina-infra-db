@@ -61,3 +61,12 @@ concorrência `infra-db-shared` impede aplicações simultâneas.
 Consulte [o runbook](docs/runbook.md) para verificação e lifecycle. O workflow
 manual protegido deve ser usado no encerramento; não execute `terraform destroy`
 diretamente durante a operação normal.
+
+Antes de remover a chave KMS do banco, o workflow copia o snapshot final para a
+chave AWS gerenciada `alias/aws/rds`, valida a cópia e remove o snapshot fonte.
+Assim, o artefato de restauração permanece legível após o encerramento da stack.
+
+O segredo gerenciado do RDS usa a chave KMS do banco. A policy da aplicação
+permite leitura por HTTPS e descriptografia apenas desse segredo via Secrets
+Manager. Aplique as permissões atualizadas de `infra-k8s` antes do deploy do
+banco; a role de deploy pode criar o segredo gerenciado, mas não ler seu valor.

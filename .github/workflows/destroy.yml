@@ -59,21 +59,41 @@ jobs:
           terraform init -input=false
           -backend-config="bucket=${TF_VAR_state_bucket}"
           -backend-config="region=${AWS_REGION}"
-      - name: Create and verify final snapshot
+      - name: Create, re-encrypt and verify final snapshot
         id: final_snapshot
         shell: bash
         run: |
+          source_snapshot_id="soat-oficina-final-source-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
           snapshot_id="soat-oficina-final-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
           aws rds create-db-snapshot \
             --db-instance-identifier soat-oficina-db \
-            --db-snapshot-identifier "${snapshot_id}"
+            --db-snapshot-identifier "${source_snapshot_id}"
+          aws rds wait db-snapshot-available \
+            --db-snapshot-identifier "${source_snapshot_id}"
+          source_kms_arn="$(aws rds describe-db-snapshots \
+            --db-snapshot-identifier "${source_snapshot_id}" \
+            --query 'DBSnapshots[0].KmsKeyId' \
+            --output text)"
+          test -n "${source_kms_arn}" && test "${source_kms_arn}" != "None"
+          aws rds copy-db-snapshot \
+            --source-db-snapshot-identifier "${source_snapshot_id}" \
+            --target-db-snapshot-identifier "${snapshot_id}" \
+            --kms-key-id alias/aws/rds \
+            --copy-tags
           aws rds wait db-snapshot-available \
             --db-snapshot-identifier "${snapshot_id}"
-          snapshot_arn="$(aws rds describe-db-snapshots \
+          read -r snapshot_arn snapshot_kms_arn snapshot_status <<< "$(aws rds describe-db-snapshots \
             --db-snapshot-identifier "${snapshot_id}" \
-            --query 'DBSnapshots[0].DBSnapshotArn' \
+            --query 'DBSnapshots[0].[DBSnapshotArn,KmsKeyId,Status]' \
             --output text)"
           test -n "${snapshot_arn}" && test "${snapshot_arn}" != "None"
+          test -n "${snapshot_kms_arn}" && test "${snapshot_kms_arn}" != "None"
+          test "${snapshot_kms_arn}" != "${source_kms_arn}"
+          test "${snapshot_status}" = "available"
+          aws rds delete-db-snapshot \
+            --db-snapshot-identifier "${source_snapshot_id}"
+          aws rds wait db-snapshot-deleted \
+            --db-snapshot-identifier "${source_snapshot_id}"
           echo "snapshot_arn=${snapshot_arn}" >> "${GITHUB_OUTPUT}"
           printf '%s\n' "${snapshot_arn}" > final-snapshot-arn.txt
       - name: Plan deletion protection disablement

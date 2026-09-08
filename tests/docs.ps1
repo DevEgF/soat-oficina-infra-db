@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $docs = (Get-Content -LiteralPath @('README.md', 'docs/er.md', 'docs/decision.md', 'docs/runbook.md') -Raw) -join "`n"
 
-foreach ($term in @('db.t4g.micro', 'Single-AZ', 'schema hml', 'schema prod', 'terraform destroy', 'master_secret_arn')) {
+foreach ($term in @('db.t4g.micro', 'Single-AZ', 'schema hml', 'schema prod', 'terraform destroy', 'master_secret_arn', 'alias/aws/rds')) {
     if ($docs -notmatch [regex]::Escape($term)) {
         throw "missing documentation term: $term"
     }

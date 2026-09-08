@@ -69,8 +69,12 @@ run "managed_rds_contract" {
   }
 
   assert {
-    condition     = aws_db_instance.this.manage_master_user_password && aws_db_instance.this.username == "oficina_admin"
-    error_message = "RDS must manage a non-default master credential"
+    condition = (
+      aws_db_instance.this.manage_master_user_password &&
+      aws_db_instance.this.master_user_secret_kms_key_id == aws_kms_key.rds.arn &&
+      aws_db_instance.this.username == "oficina_admin"
+    )
+    error_message = "RDS must manage a non-default master credential encrypted by the project key"
   }
 
   assert {
@@ -106,5 +110,16 @@ run "managed_rds_contract" {
       jsondecode(aws_iam_role_policy.app_rds_secret.policy).Statement[0].Resource == "arn:aws:secretsmanager:us-east-1:111122223333:secret:rds-db-credentials/example"
     )
     error_message = "application policy must read only the exact RDS-managed secret"
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.app_rds_secret.policy).Statement :
+      statement.Action == "kms:Decrypt" &&
+      statement.Resource == aws_kms_key.rds.arn &&
+      try(statement.Condition.StringEquals["kms:ViaService"], "") == "secretsmanager.us-east-1.amazonaws.com" &&
+      try(statement.Condition.StringEquals["kms:EncryptionContext:SecretARN"], "") == aws_db_instance.this.master_user_secret[0].secret_arn
+    ])
+    error_message = "application decryption must be restricted to the database key and exact secret through Secrets Manager"
   }
 }

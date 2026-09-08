@@ -2,6 +2,7 @@ locals {
   project = "soat-oficina"
 
   tags = {
+    Component       = "infra-db"
     Project         = local.project
     ManagedBy       = "terraform"
     Phase           = "3"

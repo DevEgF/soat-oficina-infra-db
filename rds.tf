@@ -83,7 +83,8 @@ resource "aws_db_instance" "this" {
   db_name        = "oficina"
   username       = "oficina_admin"
 
-  manage_master_user_password = true
+  manage_master_user_password   = true
+  master_user_secret_kms_key_id = aws_kms_key.rds.arn
 
   allocated_storage     = 20
   max_allocated_storage = 100
@@ -125,6 +126,20 @@ resource "aws_iam_role_policy" "app_rds_secret" {
       Effect   = "Allow"
       Action   = "secretsmanager:GetSecretValue"
       Resource = aws_db_instance.this.master_user_secret[0].secret_arn
+      Condition = {
+        Bool = { "aws:SecureTransport" = "true" }
+      }
+      }, {
+      Sid      = "DecryptExactRdsManagedSecret"
+      Effect   = "Allow"
+      Action   = "kms:Decrypt"
+      Resource = aws_kms_key.rds.arn
+      Condition = {
+        StringEquals = {
+          "kms:ViaService"                  = "secretsmanager.${var.aws_region}.amazonaws.com"
+          "kms:EncryptionContext:SecretARN" = aws_db_instance.this.master_user_secret[0].secret_arn
+        }
+      }
     }]
   })
 }

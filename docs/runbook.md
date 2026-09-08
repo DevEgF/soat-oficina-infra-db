@@ -34,16 +34,20 @@ em terminal, log, output Terraform ou variável do GitHub.
 3. Verifique se a origem usa o security group esperado e se a regra 5432 aponta
    para ele, sem substituir a origem por um CIDR amplo.
 4. Confirme que o workload recebeu o ARN e que sua Pod Identity ou execution role
-   possui acesso somente ao segredo exato.
+   possui acesso somente ao segredo exato. A chave KMS do banco também protege
+   o segredo gerenciado: a aplicação precisa de `kms:Decrypt` nessa chave, via
+   Secrets Manager e com o contexto `SecretARN` limitado ao mesmo segredo.
 5. Confirme o schema selecionado (`hml` ou `prod`) e o histórico do Flyway.
 6. Consulte os logs do PostgreSQL e os alarmes de CPU, storage e conexões.
 
 ## Encerrar com snapshot final
 
 Use o workflow manual `destroy` e informe `DESTROY-soat-oficina-db`. Ele executa,
-na ordem: snapshot final datado, espera de disponibilidade, plano salvo para
+na ordem: snapshot fonte datado, cópia criptografada pela chave AWS gerenciada
+`alias/aws/rds`, validação da cópia, remoção do snapshot fonte, plano salvo para
 desativar deletion protection, plano completo de destruição e aplicação do plano
-salvo. O ARN do snapshot e os dois planos ficam anexados como evidência.
+salvo. O ARN da cópia final e os dois planos ficam anexados como evidência. A
+cópia não depende da chave KMS do Terraform, cuja exclusão é agendada no destroy.
 
 Não use `terraform destroy` diretamente: isso contorna o guardrail que comprova o
 snapshot. Destrua auth e app antes do banco, e o banco antes de infra-k8s, pois a
