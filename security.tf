@@ -6,6 +6,8 @@ locals {
 }
 
 resource "aws_db_subnet_group" "this" {
+  depends_on = [aws_iam_service_linked_role.rds]
+
   name        = "${local.project}-db"
   description = "Private subnet group for the managed PostgreSQL instance"
   subnet_ids  = data.terraform_remote_state.k8s.outputs.private_subnet_ids
@@ -34,4 +36,8 @@ resource "aws_vpc_security_group_egress_rule" "all" {
   description       = "Allow response traffic from the private database"
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
+}
+
+resource "aws_iam_service_linked_role" "rds" {
+  aws_service_name = "rds.amazonaws.com"
 }
