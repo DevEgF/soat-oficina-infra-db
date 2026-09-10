@@ -30,6 +30,11 @@ output "master_secret_arn" {
   sensitive   = true
 }
 
+output "database_kms_key_arn" {
+  description = "Customer-managed KMS key metadata for exact runtime decryption permissions."
+  value       = aws_kms_key.rds.arn
+}
+
 output "database_alarm_names" {
   description = "CloudWatch alarms that protect the managed database."
   value = [

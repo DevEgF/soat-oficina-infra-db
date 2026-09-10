@@ -54,6 +54,7 @@ concorrência `infra-db-shared` impede aplicações simultâneas.
 | `database_port` | Porta estável 5432 |
 | `database_name` | Database estável `oficina` |
 | `master_secret_arn` | Referência ao segredo gerenciado, nunca seu conteúdo |
+| `database_kms_key_arn` | Metadado da CMK para permissões de decrypt no runtime, nunca material de chave |
 | `rds_security_group_id` | Evidência do isolamento de rede |
 | `db_subnet_group_name` | Evidência das subnets privadas |
 | `database_alarm_names` | Alarmes técnicos do banco |
