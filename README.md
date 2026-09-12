@@ -1,5 +1,7 @@
 # soat-oficina-infra-db
 
+> **Ambiente AWS encerrado após a demonstração para evitar custos recorrentes.** A implantação e os testes foram executados; os workflows AWS estão desabilitados e o CI permanece ativo. Consulte o [registro de execução, evidências e limites da remoção](docs/delivery/encerramento-aws.md). Não há endpoint AWS ativo anunciado.
+
 Infraestrutura Terraform do PostgreSQL gerenciado da Fase 3. O módulo cria uma
 instância RDS privada e compartilhada, e a aplicação mantém o isolamento lógico
 por `schema hml` e `schema prod` com Flyway.
