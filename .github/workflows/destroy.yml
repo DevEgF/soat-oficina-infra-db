@@ -1,0 +1,123 @@
+name: destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment used for approval and OIDC
+        required: true
+        type: choice
+        options:
+          - hml
+          - prod
+      confirmation:
+        description: Type DESTROY-soat-oficina-db
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_VAR_state_bucket: ${{ vars.TF_STATE_BUCKET }}
+  TF_IN_AUTOMATION: true
+
+jobs:
+  destroy:
+    name: destroy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: infra-db-shared
+      cancel-in-progress: false
+    steps:
+      - name: Validate typed confirmation
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          test "${CONFIRMATION}" = "DESTROY-soat-oficina-db" || { echo "Invalid destruction confirmation"; exit 1; }
+          test -n "${AWS_REGION}" || { echo "AWS_REGION is required"; exit 1; }
+          test -n "${AWS_ROLE_ARN}" || { echo "AWS_ROLE_ARN is required"; exit 1; }
+          test -n "${TF_VAR_state_bucket}" || { echo "TF_STATE_BUCKET is required"; exit 1; }
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.0
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Initialize exact remote state
+        run: >-
+          terraform init -input=false
+          -backend-config="bucket=${TF_VAR_state_bucket}"
+          -backend-config="region=${AWS_REGION}"
+      - name: Create, re-encrypt and verify final snapshot
+        id: final_snapshot
+        shell: bash
+        run: |
+          source_snapshot_id="soat-oficina-final-source-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
+          snapshot_id="soat-oficina-final-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
+          aws rds create-db-snapshot \
+            --db-instance-identifier soat-oficina-db \
+            --db-snapshot-identifier "${source_snapshot_id}"
+          aws rds wait db-snapshot-available \
+            --db-snapshot-identifier "${source_snapshot_id}"
+          source_kms_arn="$(aws rds describe-db-snapshots \
+            --db-snapshot-identifier "${source_snapshot_id}" \
+            --query 'DBSnapshots[0].KmsKeyId' \
+            --output text)"
+          test -n "${source_kms_arn}" && test "${source_kms_arn}" != "None"
+          aws rds copy-db-snapshot \
+            --source-db-snapshot-identifier "${source_snapshot_id}" \
+            --target-db-snapshot-identifier "${snapshot_id}" \
+            --kms-key-id alias/aws/rds \
+            --copy-tags
+          aws rds wait db-snapshot-available \
+            --db-snapshot-identifier "${snapshot_id}"
+          read -r snapshot_arn snapshot_kms_arn snapshot_status <<< "$(aws rds describe-db-snapshots \
+            --db-snapshot-identifier "${snapshot_id}" \
+            --query 'DBSnapshots[0].[DBSnapshotArn,KmsKeyId,Status]' \
+            --output text)"
+          test -n "${snapshot_arn}" && test "${snapshot_arn}" != "None"
+          test -n "${snapshot_kms_arn}" && test "${snapshot_kms_arn}" != "None"
+          test "${snapshot_kms_arn}" != "${source_kms_arn}"
+          test "${snapshot_status}" = "available"
+          aws rds delete-db-snapshot \
+            --db-snapshot-identifier "${source_snapshot_id}"
+          aws rds wait db-snapshot-deleted \
+            --db-snapshot-identifier "${source_snapshot_id}"
+          echo "snapshot_arn=${snapshot_arn}" >> "${GITHUB_OUTPUT}"
+          printf '%s\n' "${snapshot_arn}" > final-snapshot-arn.txt
+      - name: Plan deletion protection disablement
+        run: >-
+          terraform plan -input=false
+          -var=deletion_protection=false
+          -target=aws_db_instance.this
+          -out=disable-protection.tfplan
+      - name: Apply deletion protection disablement
+        run: terraform apply -input=false disable-protection.tfplan
+      - name: Create full saved destroy plan
+        run: >-
+          terraform plan -destroy -input=false
+          -var=deletion_protection=false
+          -out=destroy.tfplan
+      - name: Upload destruction evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: infra-db-destroy-${{ inputs.environment }}-${{ github.run_id }}
+          path: |
+            final-snapshot-arn.txt
+            disable-protection.tfplan
+            destroy.tfplan
+          if-no-files-found: error
+          retention-days: 30
+      - name: Apply full saved destroy plan
+        run: terraform apply -input=false destroy.tfplan
