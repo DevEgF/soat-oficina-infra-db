@@ -6,7 +6,7 @@
 
 **Hoje: Oracle Cloud (VM + K3s) + Neon PostgreSQL + New Relic.** A implementação AWS permanece como histórico técnico; ela não é o ambiente ativo. A mudança preservou a engine do banco, os contratos da API e a lógica de negócio. Em troca do menor custo operacional pretendido, assumimos a manutenção de um cluster de nó único e a dependência de serviços em provedores diferentes.
 
-Esta página da `main` apresenta a documentação atualizada. O código da adaptação OCI e seus scripts estão na [branch develop](https://github.com/DevEgF/soat-oficina-infra-db/tree/develop); os diretórios AWS preservados na main não representam um novo deploy. Esta atualização altera apenas documentação.
+Este README descreve a operação atual em OCI e preserva os procedimentos AWS como histórico. A integração entre `develop` e `main` mantém a documentação e o código versionados; um merge não comprova nem executa um novo deploy OCI. Os workflows de deploy AWS permanecem desabilitados.
 
 ## Implantação atual e decisões da solução
 
@@ -127,7 +127,7 @@ concorrência `infra-db-shared` impede aplicações simultâneas.
 | `db_subnet_group_name` | Evidência das subnets privadas |
 | `database_alarm_names` | Alarmes técnicos do banco |
 
-Consulte [o runbook](https://github.com/DevEgF/soat-oficina-infra-db/blob/develop/docs/runbook.md) para verificação e lifecycle. O workflow
+Consulte [o runbook](docs/runbook.md) para verificação e lifecycle. O workflow
 manual protegido deve ser usado no encerramento; não execute `terraform destroy`
 diretamente durante a operação normal.
 
