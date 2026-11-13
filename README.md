@@ -1,5 +1,11 @@
 # soat-oficina-infra-db
 
+## Fase 4: um banco por serviço
+
+Na Fase 4 a aplicação foi dividida em três microsserviços e cada um passou a ter o próprio banco, que nenhum outro serviço acessa: PostgreSQL no [OS Service](https://github.com/DevEgF/soat-oficina-os-service) e no [Billing Service](https://github.com/DevEgF/soat-oficina-billing-service), MongoDB no [Execution Service](https://github.com/DevEgF/soat-oficina-execution-service). Cada banco é declarado nos manifestos Kubernetes do próprio serviço (`k8s/`) e roda no cluster kind local descrito em [soat-oficina-infra-k8s](https://github.com/DevEgF/soat-oficina-infra-k8s/tree/develop), com o esquema versionado por migrations no repositório do serviço.
+
+Este repositório guarda a infraestrutura de banco da Fase 3 (o Terraform do RDS e o registro do banco gerenciado no Neon) e fica preservado como histórico. O conteúdo abaixo descreve essa fase.
+
 ## Por que trocamos AWS por Oracle?
 
 **A troca foi motivada por custo e continuidade da aplicação.** Depois da demonstração na AWS, a conta foi encerrada para evitar custos recorrentes de EKS, máquinas, RDS e rede. Aproveitamos a VM Oracle já disponível, com 2 OCPUs e 12 GB, para manter a API acessível usando K3s. O PostgreSQL foi mantido no Neon para não disputar os recursos dessa VM com a aplicação, e a observabilidade ficou no New Relic.
